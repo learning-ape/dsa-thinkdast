@@ -60,9 +60,17 @@ public class MyLinkedList<E> implements List<E> {
 		mll.add(1);
 		mll.add(2);
 		mll.add(3);
+		mll.add(4);
+		mll.add(5);
 		System.out.println(Arrays.toString(mll.toArray()) + " size = " + mll.size());
 
-		mll.remove(new Integer(2));
+		// mll.add(1, 5);
+		// System.out.println(Arrays.toString(mll.toArray()) + " size = " + mll.size());
+
+		// mll.remove(new Integer(2));
+		// System.out.println(Arrays.toString(mll.toArray()) + " size = " + mll.size());
+		
+		mll = mll.subList(1, 3);
 		System.out.println(Arrays.toString(mll.toArray()) + " size = " + mll.size());
 	}
 
@@ -80,9 +88,22 @@ public class MyLinkedList<E> implements List<E> {
 		return true;
 	}
 
+	/**
+	 * Insert before given index:
+	 * 1. newNode --> old next
+	 * 2. prev --> newNode
+	 */
 	@Override
 	public void add(int index, E element) {
 		//TODO: FILL THIS IN!
+		
+		if (index == 0) {                   // at beginning (or empty):
+			head = new Node(element, head); // head -> (new node -> old head)
+		} else {                            // otherwise: 
+            Node node = getNode(index - 1); // get prev node with index-checking
+            node.next = new Node(element, node.next); // prev -> (new -> old next)
+		}
+		size++;
 	}
 
 	@Override
@@ -141,9 +162,21 @@ public class MyLinkedList<E> implements List<E> {
 		return node;
 	}
 
+	/**
+	 * Traverses to find the index of first occurence of the specified element.
+	 *
+	 * @return index of target element found; -1 if not found
+	 */
 	@Override
 	public int indexOf(Object target) {
 		//TODO: FILL THIS IN!
+		Node node = head;
+		for (int i = 0; i < size; i++) {
+			if (equals(target, node.data)) {
+				return i;
+			}
+			node = node.next;
+		}
 		return -1;
 	}
 
@@ -206,10 +239,23 @@ public class MyLinkedList<E> implements List<E> {
 		return true;
 	}
 
+	/**
+	 * Deletes given index node by bypassing it.
+	 * : prev -(indexNode)-> old next
+	 */
 	@Override
 	public E remove(int index) {
 		//TODO: FILL THIS IN!
-		return null;
+
+        E element = get(index);         // item to be removed (+ index-check)
+        if (index == 0) {                       
+            head = head.next;
+        } else {
+            Node node = getNode(index - 1); // get prev of index node
+            node.next = (node.next).next;   // prev --(index node)--> old next
+        }
+        size--;
+        return element;
 	}
 
 	@Override
@@ -245,14 +291,25 @@ public class MyLinkedList<E> implements List<E> {
 			throw new IndexOutOfBoundsException();
 		}
 		// TODO: classify this and improve it.
+		// idea. remove nested loop
+		// 1. add at the beginning into first list, so it's reversed order.
 		int i = 0;
-		MyLinkedList<E> list = new MyLinkedList<E>();
+		MyLinkedList<E> listReversed = new MyLinkedList<E>();
 		for (Node node=head; node != null; node = node.next) {
 			if (i >= fromIndex && i <= toIndex) {
-				list.add(node.data);
+				listReversed.add(0, node.data);				// O(1)
 			}
 			i++;
 		}
+		// 2. add at the beginning again from first list into second list, 
+		// so reversing the reversed order means now it's in right order
+		MyLinkedList<E> list = new MyLinkedList<E>();
+		for (Node node=listReversed.head; node != null; node = node.next) {
+				list.add(0, node.data);						// O(1)
+			i++;
+		}
+		// loop after the other, run times added (not nested, so not multiplied): O(n) + O(n) = O(n)
+		// but downside is it takes more than triple as much memory (this, first, second list)
 		return list;
 	}
 
