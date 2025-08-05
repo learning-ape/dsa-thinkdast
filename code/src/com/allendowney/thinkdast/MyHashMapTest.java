@@ -21,5 +21,6 @@ public class MyHashMapTest extends MyLinearMapTest {
 		map.put("Two", 2);
 		map.put("Three", 3);
 		map.put(null, 0);
+		((MyHashMap<String, Integer>) map).printHashMap();
 	}
 }
