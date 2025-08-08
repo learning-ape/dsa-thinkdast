@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 
 /**
@@ -72,6 +73,17 @@ public class MyTreeMap<K, V> implements Map<K, V> {
 		Comparable<? super K> k = (Comparable<? super K>) target;
 
 		// TODO: FILL THIS IN!
+		Node current = root;
+		while (current != null) {					// until there's no next child
+			int cmp = k.compareTo(current.key);
+			if (cmp < 0) {							// target less than current: go left
+				current = current.left;
+			} else if (cmp > 0) {					// greater than: go right
+				current = current.right;
+			} else {
+				return current;						// equal: found the target
+			}
+		}
 		return null;
 	}
 
@@ -96,6 +108,24 @@ public class MyTreeMap<K, V> implements Map<K, V> {
 
 	private boolean containsValueHelper(Node node, Object target) {
 		// TODO: FILL THIS IN!
+        if (node == null) {     // empty tree
+            return false;
+        }
+        // use BFS (for each level)
+        Queue<Node> queue = new LinkedList<>();
+        queue.add(node);
+        while (!queue.isEmpty()) {
+            Node current = queue.poll();
+            if (equals(target, current.value)) {
+                return true;
+            }
+            if (current.left != null) {
+                queue.add(current.left);
+            }
+            if (current.right != null) {
+                queue.add(current.right);
+            }
+        }
 		return false;
 	}
 
@@ -122,8 +152,17 @@ public class MyTreeMap<K, V> implements Map<K, V> {
 	public Set<K> keySet() {
 		Set<K> set = new LinkedHashSet<K>();
 		// TODO: FILL THIS IN!
+        addInOrder(root, set);
 		return set;
 	}
+	
+    private void addInOrder(Node localRoot, Set<K> s) {
+        if (localRoot != null) {
+            addInOrder(localRoot.left, s);
+            s.add(localRoot.key);
+            addInOrder(localRoot.right, s);
+        }
+    }
 
 	@Override
 	public V put(K key, V value) {
@@ -140,6 +179,34 @@ public class MyTreeMap<K, V> implements Map<K, V> {
 
 	private V putHelper(Node node, K key, V value) {
 		// TODO: FILL THIS IN!
+        @SuppressWarnings("unchecked")
+		Comparable<? super K> k = (Comparable<? super K>) key;
+
+        // iterative version (can also use recursive version)
+        Node current = node;
+        Node parent;
+        while (true) {
+            parent = current;
+            int cmp = k.compareTo(current.key);
+            if (cmp < 0) {
+                current = current.left;
+                if (current == null) {      // key not in the tree
+                    parent.left = new Node(key, value);
+                    break;
+                }
+            } else if (cmp > 0) {
+                current = current.right;
+                if (current == null) {      // key not in the tree
+                    parent.right = new Node(key, value);
+                    break;
+                }
+            } else {                        // key already in the tree
+                V oldValue = current.value;
+                current.value = value;      // replace old to new value
+                return oldValue;
+            }
+        }
+        size++;
 		return null;
 	}
 
