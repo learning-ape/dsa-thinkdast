@@ -136,6 +136,7 @@ public class TermCounter {
 			System.out.println(key + ", " + count);
 		}
 		System.out.println("Total of all counts = " + size());
+		// System.out.println("Total search terms = " + keySet().size());
 	}
 
 	/**

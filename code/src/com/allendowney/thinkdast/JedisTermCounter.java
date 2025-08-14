@@ -29,7 +29,7 @@ public class JedisTermCounter extends TermCounter {
 		Transaction t = jedis.multi();
 		
 		String hashname = hashName();
-		t.del(hashname);
+		t.del(hashname); // if index the same page again, replace old to new one.
 
 		for (String key: keySet()) {
 			Integer count = get(key);

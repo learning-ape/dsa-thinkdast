@@ -78,7 +78,7 @@ public class JedisIndex {
 	 */
 	public Set<String> getURLs(String term) {
         // FILL THIS IN!
-		return null;
+		return jedis.smembers(urlSetKey(term));
 	}
 
     /**
@@ -89,7 +89,37 @@ public class JedisIndex {
 	 */
 	public Map<String, Integer> getCounts(String term) {
         // FILL THIS IN!
-		return null;
+		Map<String, Integer> map = new HashMap<>();
+		// Set<String> urls = getURLs(term);
+		// for (String url : urls) {
+		// 	Integer count = getCount(url, term); // round-trip to db each time
+		// 	map.put(url, count);
+		// }
+
+		/* faster version. not using getCount method */
+
+		// convert the set to a list to ensure consistent ordering 
+		// between the transaction requests and responses
+		List<String> urls = new ArrayList<String>();
+		urls.addAll(getURLs(term));
+
+		// transaction to perform all lookups
+		Transaction t = jedis.multi();
+		for (String url : urls) {
+			String redisKey = termCounterKey(url);
+			t.hget(redisKey, term);
+		}
+		List<Object> response = t.exec();
+
+		// iterate the results and make the map
+		int i = 0;
+		for (String url : urls) {
+			System.out.println(url);
+			Integer count = Integer.valueOf((String) response.get(i));
+			map.put(url, count);
+		}
+		
+		return map;
 	}
 
     /**
@@ -101,7 +131,9 @@ public class JedisIndex {
 	 */
 	public Integer getCount(String url, String term) {
         // FILL THIS IN!
-		return null;
+		String redisKey = termCounterKey(url);
+		String count = jedis.hget(redisKey, term);
+		return Integer.valueOf(count);
 	}
 
 	/**
@@ -112,6 +144,22 @@ public class JedisIndex {
 	 */
 	public void indexPage(String url, Elements paragraphs) {
 		// TODO: FILL THIS IN!
+		// same logic as Index.java, but store in database
+		System.out.println("Indexing " + url);
+
+		// make a TermCounter (count the terms in the paragraphs)
+		JedisTermCounter tc = new JedisTermCounter(url);
+		tc.processElements(paragraphs);
+		tc.pushToRedis(jedis);
+		// System.out.println("Done pushing TermCounter.");
+
+		// for each term in the TermCounter, add the TermCounter to the index
+		Map<String, String> map = tc.pullFromRedis(jedis);
+		for (Map.Entry<String, String> entry: map.entrySet()) {
+			String term = entry.getKey();
+			add(term, tc);
+		}
+		// System.out.println("Done pushing URLSet.");
 	}
 
 	/**
@@ -253,11 +301,11 @@ public class JedisIndex {
 		WikiFetcher wf = new WikiFetcher();
 
 		String url = "https://en.wikipedia.org/wiki/Java_(programming_language)";
-		Elements paragraphs = wf.readWikipedia(url);
+		Elements paragraphs = wf.fetchWikipedia(url);
 		index.indexPage(url, paragraphs);
 
 		url = "https://en.wikipedia.org/wiki/Programming_language";
-		paragraphs = wf.readWikipedia(url);
+		paragraphs = wf.fetchWikipedia(url);
 		index.indexPage(url, paragraphs);
 	}
 }

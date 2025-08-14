@@ -22,7 +22,7 @@ public class JedisMaker {
 	 * @throws IOException
 	 */
 	public static Jedis make() throws IOException {
-		
+		/*
 		// assemble the directory name
 		String slash = File.separator;
 		String filename = "resources" + slash + "redis_url.txt";
@@ -63,10 +63,16 @@ public class JedisMaker {
 
 		String[] array = uri.getAuthority().split("[:@]");
 		String auth = array[1];
-		
+		*/
+
+		String host = "127.0.0.1";
+		int port = 6379;
+
 		// connect to the server
 		Jedis jedis = new Jedis(host, port);
 
+		/*
+		// authenticate server password
 		try {
 			jedis.auth(auth);
 		} catch (Exception e) {
@@ -76,7 +82,7 @@ public class JedisMaker {
 			System.out.println("Got exception " + e);
 			printInstructions();
 			return null;
-		}
+		} */
 		return jedis;
 	}
 
