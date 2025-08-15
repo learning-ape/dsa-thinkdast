@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -83,6 +82,7 @@ public class JedisIndex {
 
     /**
 	 * Looks up a term and returns a map from URL to count.
+	 * index(term -> pages) -> count of each page
 	 * 
 	 * @param term
 	 * @return Map from URL to count.
@@ -90,6 +90,7 @@ public class JedisIndex {
 	public Map<String, Integer> getCounts(String term) {
         // FILL THIS IN!
 		Map<String, Integer> map = new HashMap<>();
+
 		// Set<String> urls = getURLs(term);
 		// for (String url : urls) {
 		// 	Integer count = getCount(url, term); // round-trip to db each time
@@ -98,27 +99,26 @@ public class JedisIndex {
 
 		/* faster version. not using getCount method */
 
-		// convert the set to a list to ensure consistent ordering 
-		// between the transaction requests and responses
-		List<String> urls = new ArrayList<String>();
-		urls.addAll(getURLs(term));
+		// 1. get pages of the term (single/atomic transaction)
+		Set<String> urls = getURLs(term); // Set traversal order is retained as long as it's unchanged
 
+		// 2. get count for each page (multiple transactions)
 		// transaction to perform all lookups
 		Transaction t = jedis.multi();
 		for (String url : urls) {
 			String redisKey = termCounterKey(url);
 			t.hget(redisKey, term);
 		}
-		List<Object> response = t.exec();
-
+		List<Object> counts = t.exec();
+		
 		// iterate the results and make the map
 		int i = 0;
 		for (String url : urls) {
 			System.out.println(url);
-			Integer count = Integer.valueOf((String) response.get(i));
+			Integer count = Integer.valueOf((String) counts.get(i++));
 			map.put(url, count);
 		}
-		
+
 		return map;
 	}
 
@@ -147,19 +147,45 @@ public class JedisIndex {
 		// same logic as Index.java, but store in database
 		System.out.println("Indexing " + url);
 
-		// make a TermCounter (count the terms in the paragraphs)
-		JedisTermCounter tc = new JedisTermCounter(url);
-		tc.processElements(paragraphs);
-		tc.pushToRedis(jedis);
+		// 1. make a TermCounter (count the terms in the paragraphs)
+		// JedisTermCounter tc = new JedisTermCounter(url);
+		// tc.processElements(paragraphs);
+		// tc.pushToRedis(jedis);
 		// System.out.println("Done pushing TermCounter.");
 
-		// for each term in the TermCounter, add the TermCounter to the index
-		Map<String, String> map = tc.pullFromRedis(jedis);
-		for (Map.Entry<String, String> entry: map.entrySet()) {
-			String term = entry.getKey();
-			add(term, tc);
-		}
+		// 2. for each term in the TermCounter, add the TermCounter to the index
+		// Map<String, String> map = tc.pullFromRedis(jedis);
+		// for (Map.Entry<String, String> entry: map.entrySet()) {
+		// 	String term = entry.getKey();
+		// 	add(term, tc);
+		// }
 		// System.out.println("Done pushing URLSet.");
+
+		/* clean && efficient (much faster) version: 
+			for each term, add TermCounter && URLSet at the same time, 
+			avoiding many small transactions */
+		// 1. make TermCounter
+		TermCounter tc = new TermCounter(url);
+		tc.processElements(paragraphs);
+
+		// 2. push it to Redis
+		Transaction t = jedis.multi();
+		pushTermCounterToRedis(tc, t);
+		t.exec();
+	}
+
+	private void pushTermCounterToRedis(TermCounter tc, Transaction t) {
+		String url = tc.getLabel();
+		String hashname = termCounterKey(url);
+
+		// if this page has already been indexed, delete the old hash (replace to new one)
+		t.del(hashname);
+		
+		for (String term : tc.keySet()) {
+			Integer count = tc.get(term);
+			t.hset(hashname, term, count.toString()); // push TermCounter(the page)
+			t.sadd(urlSetKey(term), url); // push the page to URLSet(index/register terms in the page) 
+		}
 	}
 
 	/**
