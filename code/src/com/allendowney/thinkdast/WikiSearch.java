@@ -1,6 +1,7 @@
 package com.allendowney.thinkdast;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -46,7 +47,7 @@ public class WikiSearch {
 	 *
 	 * @param
 	 */
-	private  void print() {
+	private void print() {
 		List<Entry<String, Integer>> entries = sort();
 		for (Entry<String, Integer> entry: entries) {
 			System.out.println(entry);
@@ -54,36 +55,54 @@ public class WikiSearch {
 	}
 
 	/**
-	 * Computes the union of two search results.
+	 * Computes the union of two search results. (A ∪ B)
 	 *
 	 * @param that
 	 * @return New WikiSearch object.
 	 */
 	public WikiSearch or(WikiSearch that) {
 		// TODO: FILL THIS IN!
-		return null;
+		Map<String, Integer> unionSum = new HashMap<>(this.map);
+		for (Map.Entry<String, Integer> entry : that.map.entrySet()) {
+			// if key doesn't exist, insert it; 
+			// otherwise(key already exist), apply merge function (in here: sum both values)
+			unionSum.merge(entry.getKey(), entry.getValue(), Integer::sum); // combine two maps
+		}
+		return new WikiSearch(unionSum);
 	}
 
 	/**
-	 * Computes the intersection of two search results.
+	 * Computes the intersection of two search results. (A ∩ B)
 	 *
 	 * @param that
 	 * @return New WikiSearch object.
 	 */
 	public WikiSearch and(WikiSearch that) {
 		// TODO: FILL THIS IN!
-		return null;
+		Map<String, Integer> intersectionSum = new HashMap<>();
+		for (String key : this.map.keySet()) {
+			if (that.map.containsKey(key)) { // only when both have the same key
+				intersectionSum.put(key, this.map.get(key) + that.map.get(key));
+			}
+		}
+		return new WikiSearch(intersectionSum);
 	}
 
 	/**
-	 * Computes the intersection of two search results.
+	 * Computes the difference of two search results. (A - B)
 	 *
 	 * @param that
 	 * @return New WikiSearch object.
 	 */
 	public WikiSearch minus(WikiSearch that) {
 		// TODO: FILL THIS IN!
-		return null;
+		Map<String, Integer> diffSum = new HashMap<>(this.map);
+		for (String key : that.map.keySet()) {
+			if (diffSum.containsKey(key)) { // if both have the same key, remove it from the result
+				diffSum.remove(key);
+			}
+		}
+		return new WikiSearch(diffSum);
 	}
 
 	/**
@@ -99,13 +118,17 @@ public class WikiSearch {
 	}
 
 	/**
-	 * Sort the results by relevance.
+	 * Sort the results by relevance. 
+	 * (HashMap values don’t affect ordering. 
+	 * To sort by values, you must use a Comparator)
 	 *
 	 * @return List of entries with URL and relevance.
 	 */
 	public List<Entry<String, Integer>> sort() {
 		// TODO: FILL THIS IN!
-		return null;
+		List<Map.Entry<String, Integer>> list = new ArrayList<>(map.entrySet()); // internal TimSort algorithm is optimized for arrays
+		list.sort(Map.Entry.comparingByValue()); // returns a comparator that compares Map.Entry in natural order on value.
+		return list;
 	}
 
 
