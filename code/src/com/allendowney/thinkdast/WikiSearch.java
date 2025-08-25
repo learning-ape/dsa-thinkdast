@@ -20,14 +20,14 @@ import redis.clients.jedis.Jedis;
 public class WikiSearch {
 
 	// map from URLs that contain the term(s) to relevance score
-	private Map<String, Integer> map;
+	private Map<String, Double> map;
 
 	/**
 	 * Constructor.
 	 *
 	 * @param map
 	 */
-	public WikiSearch(Map<String, Integer> map) {
+	public WikiSearch(Map<String, Double> map) {
 		this.map = map;
 	}
 
@@ -37,8 +37,8 @@ public class WikiSearch {
 	 * @param url
 	 * @return
 	 */
-	public Integer getRelevance(String url) {
-		Integer relevance = map.get(url);
+	public Double getRelevance(String url) {
+		Double relevance = map.get(url);
 		return relevance==null ? 0: relevance;
 	}
 
@@ -48,10 +48,16 @@ public class WikiSearch {
 	 * @param
 	 */
 	private void print() {
-		List<Entry<String, Integer>> entries = sort();
-		for (Entry<String, Integer> entry: entries) {
+		List<Entry<String, Double>> entries = sort();
+		if (entries.isEmpty()) {
+			System.out.println("There's no results found.");
+			return;
+		}
+
+		for (Entry<String, Double> entry: entries) {
 			System.out.println(entry);
 		}
+		System.out.println();
 	}
 
 	/**
@@ -62,13 +68,14 @@ public class WikiSearch {
 	 */
 	public WikiSearch or(WikiSearch that) {
 		// TODO: FILL THIS IN!
-		Map<String, Integer> unionSum = new HashMap<>(this.map);
-		for (Map.Entry<String, Integer> entry : that.map.entrySet()) {
-			// if key doesn't exist, insert it; 
-			// otherwise(key already exist), apply merge function (in here: sum both values)
-			unionSum.merge(entry.getKey(), entry.getValue(), Integer::sum); // combine two maps
+		Map<String, Double> union = new HashMap<>(this.map);
+		for (String term : that.map.keySet()) {
+			// could potentially return null if the term doesn't exist: 
+			// terms that might exist in one map but not the other. 
+			double relevance = totalRelevance(this.getRelevance(term), that.getRelevance(term));
+			union.put(term, relevance);
 		}
-		return new WikiSearch(unionSum);
+		return new WikiSearch(union);
 	}
 
 	/**
@@ -79,13 +86,14 @@ public class WikiSearch {
 	 */
 	public WikiSearch and(WikiSearch that) {
 		// TODO: FILL THIS IN!
-		Map<String, Integer> intersectionSum = new HashMap<>();
-		for (String key : this.map.keySet()) {
-			if (that.map.containsKey(key)) { // only when both have the same key
-				intersectionSum.put(key, this.map.get(key) + that.map.get(key));
+		Map<String, Double> intersection = new HashMap<>();
+		for (String term : this.map.keySet()) {
+			if (that.map.containsKey(term)) { // only when both have the same key
+				double relevance = totalRelevance(this.map.get(term), that.map.get(term));
+				intersection.put(term, relevance);
 			}
 		}
-		return new WikiSearch(intersectionSum);
+		return new WikiSearch(intersection);
 	}
 
 	/**
@@ -96,13 +104,11 @@ public class WikiSearch {
 	 */
 	public WikiSearch minus(WikiSearch that) {
 		// TODO: FILL THIS IN!
-		Map<String, Integer> diffSum = new HashMap<>(this.map);
-		for (String key : that.map.keySet()) {
-			if (diffSum.containsKey(key)) { // if both have the same key, remove it from the result
-				diffSum.remove(key);
-			}
+		Map<String, Double> diff = new HashMap<>(this.map);
+		for (String term : that.map.keySet()) {
+			diff.remove(term);
 		}
-		return new WikiSearch(diffSum);
+		return new WikiSearch(diff);
 	}
 
 	/**
@@ -112,9 +118,9 @@ public class WikiSearch {
 	 * @param rel2: relevance score for the second search
 	 * @return
 	 */
-	protected int totalRelevance(Integer rel1, Integer rel2) {
+	protected double totalRelevance(Double rel1, Double rel2) {
 		// simple starting place: relevance is the sum of the term frequencies.
-		return rel1 + rel2;
+		return Math.sqrt(rel1 * rel2);
 	}
 
 	/**
@@ -124,9 +130,9 @@ public class WikiSearch {
 	 *
 	 * @return List of entries with URL and relevance.
 	 */
-	public List<Entry<String, Integer>> sort() {
+	public List<Entry<String, Double>> sort() {
 		// TODO: FILL THIS IN!
-		List<Map.Entry<String, Integer>> list = new ArrayList<>(map.entrySet()); // internal TimSort algorithm is optimized for arrays
+		List<Map.Entry<String, Double>> list = new ArrayList<>(map.entrySet()); // internal TimSort algorithm is optimized for arrays
 		list.sort(Map.Entry.comparingByValue()); // returns a comparator that compares Map.Entry in natural order on value.
 		return list;
 	}
@@ -141,7 +147,22 @@ public class WikiSearch {
 	 */
 	public static WikiSearch search(String term, JedisIndex index) {
 		Map<String, Integer> map = index.getCounts(term);
-		return new WikiSearch(map);
+
+		int df = getDf(map);
+
+		Map<String, Double> mapTfDf = new HashMap<>();
+		for (Entry<String, Integer> entry : map.entrySet()) {
+			mapTfDf.put(entry.getKey(), (double) entry.getValue() / df);
+		}
+		return new WikiSearch(mapTfDf);
+	}
+
+	private static int getDf(Map<String, Integer> m) {
+		int df = 0;
+		for (Integer tf : m.values()) {
+			df += tf;
+		}
+		return df;
 	}
 
 	public static void main(String[] args) throws IOException {
