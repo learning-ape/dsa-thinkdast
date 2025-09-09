@@ -103,4 +103,20 @@ public class ListSorterTest {
 		assertThat(res.get(2), is(7));
 		assertThat(res.get(3), is(8));
 	}
+
+	@Test
+	public void testRadixSort() {
+		List<Integer> list = new ArrayList<Integer>(
+			Arrays.asList(421, 240, 35, 532, 305, 430, 124));
+		sorter.radixSort(list);
+		
+		assertThat(list.size(), is(7));
+		assertThat(list.get(0), is(35));  // 035 in octal = 29 in decimal
+		assertThat(list.get(1), is(124));
+		assertThat(list.get(2), is(240));
+		assertThat(list.get(3), is(305));
+		assertThat(list.get(4), is(421));
+		assertThat(list.get(5), is(430));
+		assertThat(list.get(6), is(532));
+	}
 }
